@@ -18,10 +18,10 @@
  */
 
 const char err[2] = { '1', '2'};
-#define ERROPENTTY      err[0]
-#define ERRCONNECTDPC   err[1]
-#define ISERROPENTTY    '1'
-#define ISERRCONNECTDPC '2'
+#define EOPENTTY      err[0]
+#define ECONNECTDPC   err[1]
+#define ISEOPENTTY    '1'
+#define ISECONNECTDPC '2'
 
 
 /*
@@ -280,11 +280,10 @@ int create_dpc_sk(char *ip, uint16_t port)
     int count = 0;
     struct sockaddr_in addr;
 
-    sk = socket(AF_INET, SOCK_STREAM, 0);   //should set heartbeet
-    if (sk == -1)
+    if ((sk = socket(AF_INET, SOCK_STREAM, 0)) == -1) //should set heartbeet
         err_exit("rxtx - socket");
 
-    memset(&addr, 0, sizeof(addr));
+    memset(&addr, 0, sizeof(struct sockaddr_in));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     if (inet_aton(ip, &addr.sin_addr) == 0) {
@@ -295,12 +294,12 @@ int create_dpc_sk(char *ip, uint16_t port)
     //if no refuse, tcp connect will block
     while (connect(sk, (struct sockaddr *)&addr,
             sizeof(struct sockaddr)) == -1) {
-        perror("rxtx - connect failed, retry");
         count++;
         if (count > 2) {
             puts("rxtx - connect failed, give up");
             return -1;
         }
+        perror("rxtx - connect failed, retry");
         sleep(3);
     }
 
@@ -312,11 +311,10 @@ int create_local_sk(uint16_t port)
     int sk;
     struct sockaddr_in addr;
 
-    sk = socket(AF_INET, SOCK_STREAM, 0);   //should set no-block
-    if (sk == -1)
+    if ((sk = socket(AF_INET, SOCK_STREAM, 0)) == -1)
         err_exit("rxtx - socket");
 
-    memset(&addr, 0, sizeof(addr));
+    memset(&addr, 0, sizeof(struct sockaddr_in));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -325,4 +323,17 @@ int create_local_sk(uint16_t port)
         err_exit("rxtx - socket");
 
     return sk;
+}
+
+void set_nonblock(int sock)
+{
+    int opts;
+
+    if ((opts = fcntl(sock, F_GETFL)) == -1)
+        err_exit("fcntl F_GETFL");
+
+    opts |= O_NONBLOCK;
+
+    if (fcntl(sock, F_SETFL, opts) == -1)
+        err_exit("fcntl F_SETFL");
 }

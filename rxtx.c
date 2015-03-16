@@ -8,7 +8,7 @@
 #define MAXBUF     4096
 
 static unsigned char buffer[MAXBUF];
-static const char hb_buf[] = "This is heartbeat frame.\n";
+static const char HB_BUF[] = "This is heartbeat frame.\n";
 
 void load_profile(void)
 {
@@ -35,23 +35,23 @@ int main(int argc, char const *argv[])
 
     local_sk = create_local_sk(LOCAL_PORT);
 
-    tty = uart_open(baudrate);
-    if (tty == -1) {
+    if ((tty = uart_open(baudrate)) == -1) {
         /*
          * sometimes we should initiatively do reset and log error information
          * if we know what happens
          */
-        if (send(local_sk, &ERROPENTTY, 1, MSG_DONTWAIT) <= 0)
-            perror("rxtx - send ERROPENTTY to main error");
+        if (send(local_sk, &EOPENTTY, 1, MSG_DONTWAIT) <= 0)
+            perror("rxtx - send EOPENTTY to main error");
         exit(EXIT_FAILURE);
     }
 
-    dpc_sk = create_dpc_sk(DPC_ADDR, DPC_PORT);
-    if (dpc_sk == -1) {
-        if (send(local_sk, &ERRCONNECTDPC, 1, MSG_DONTWAIT) <= 0)
-            perror("rxtx - send ERRCONNECTDPC to main error");
+    if ((dpc_sk = create_dpc_sk(DPC_ADDR, DPC_PORT)) == -1) {
+        if (send(local_sk, &ECONNECTDPC, 1, MSG_DONTWAIT) <= 0)
+            perror("rxtx - send ECONNECTDPC to main error");
         exit(EXIT_FAILURE);
     }
+
+    set_nonblock(dpc_sk);
 
     fdset[0].fd     = tty;
     fdset[0].events = POLLIN;
@@ -68,7 +68,7 @@ int main(int argc, char const *argv[])
                 err_exit("rxtx - poll");
             case 0:
                 puts("rxtx - no tty data, send heartbeat data");
-                if (send(dpc_sk, hb_buf, 25, MSG_DONTWAIT) < 0)
+                if (send(dpc_sk, HB_BUF, 25, 0) < 0)
                     err_exit("rxtx - send heartbeat");
                 break;
             default:
@@ -79,7 +79,7 @@ int main(int argc, char const *argv[])
                         break;
                     }
 
-                    if (send(dpc_sk, buffer, ret, MSG_DONTWAIT) < 0) {
+                    if (send(dpc_sk, buffer, ret, 0) < 0) {
                         err_exit("rxtx - tcp send");
                         //try again, then tell parent
                     }

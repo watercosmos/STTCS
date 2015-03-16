@@ -8,7 +8,7 @@ static unsigned char buffer[MAXBUF] = { '\0' };
 
 int main(int argc, char const *argv[])
 {
-    int sk;
+    int sk, child_sk;
     pid_t pid, ret;
     struct sockaddr_in addr;
     const char *baudrate = "115200";
@@ -35,17 +35,10 @@ int main(int argc, char const *argv[])
     else if (pid == 0) {
         printf("rxtx - pid = %ld\n", (long)getpid());
         if (execl("./rxtx", "rxtx", baudrate, (char *)NULL) == -1)
-            err_exit("execl error");
+            err_exit("rxtx - execl error");
     }
 
-    int child_sk;
-    socklen_t len;
-    struct sockaddr_in child_addr;
-
-    memset(&child_addr, 0 ,sizeof(child_addr));
-    len = sizeof(struct sockaddr_in);
-
-    if ((child_sk = accept(sk, (struct sockaddr *)&child_addr, &len)) == -1)
+    if ((child_sk = accept(sk, NULL, NULL)) == -1)
         err_exit("accept");
 
     puts("main - rxtx process is connected");
@@ -65,8 +58,10 @@ int main(int argc, char const *argv[])
                 puts("main - rxtx is dead");
                 exit(EXIT_FAILURE);
         }
+
         fdset[0].revents = 0;
         memset(buffer, '\0', MAXBUF);
+
         switch (poll(fdset, 1, 30000)) {
             case -1:
                 err_exit("main - poll");
@@ -76,21 +71,23 @@ int main(int argc, char const *argv[])
             default:
                 if (fdset[0].revents == 0)
                     puts("main - strange I/O");
+                else if (fdset[0].revents & POLLHUP)
+                    err_exit("main - child is disconnected");
 
                 if (read(child_sk, buffer, MAXBUF) < 0)
                     err_exit("main - read");
 
                 switch (buffer[0]) {
-                    case ISERROPENTTY:
-                        puts("main - ERROPENTTY: rxtx open tty error");
+                    case ISEOPENTTY:
+                        puts("main - EOPENTTY: rxtx open tty error");
                         ret = wait(NULL);
                         if (ret <= 0)
                             err_exit("main - wait");
                         else if (ret != pid)
                             puts("main - return pid != child pid");
                         exit(EXIT_FAILURE);
-                    case ISERRCONNECTDPC:
-                        printf("main - recv ERRCONNECTDPC: ");
+                    case ISECONNECTDPC:
+                        printf("main - recv ECONNECTDPC: ");
                         printf("rxtx can't connect to DPC\n");
                         ret = wait(NULL);
                         if (ret <= 0)
@@ -98,6 +95,10 @@ int main(int argc, char const *argv[])
                         else if (ret != pid)
                             puts("main - return pid != child pid");
                         exit(EXIT_FAILURE);
+                    case ISENETWORK:
+                        //check available network here
+                        //restart rxtx child process
+                        //and continue listening msg from rxtx
                     default:
                         printf("main - %s\n", buffer);
                 }
