@@ -1,13 +1,14 @@
 #include "utils.h"
 
 #define MAXBUF 4096
+#define DEFAULTBAUD 3500000
 
 int main(int argc, char const *argv[])
 {
     int tty;
     FILE *out;
     char buffer[MAXBUF];
-    int baudrate = 115200;
+    int baudrate = DEFAULTBAUD;
 
     if (argc == 2)
         baudrate = atoi(argv[1]);

@@ -1,92 +1,139 @@
 #include "utils.h"
-//#include <pthread.h>
+#include <pthread.h>
 
-#define LOCAL_PORT 1090
 #define DPC_PORT   11235
 #define DPC_ADDR   "192.168.1.130"
 #define THRESHOLD  2048
 #define MAXBUF     4096
 
 static unsigned char buffer[MAXBUF];
+static unsigned char dpc_buf[MAXBUF];
 static const char HB_BUF[] = "This is heartbeat frame.\n";
+#define HB_LEN 25
 
-void load_profile(void)
+static void send_err(int sock, char ERR)
 {
-    //
+    if (send(sock, &ERR, 1, 0) <= 0)
+        perror("rxtx - send ERR to main%s\n");
+    exit(EXIT_FAILURE);
 }
 
-void watch_dog(void)
+//mutux problem ?
+static void * thread_read_dpc(void *arg)
 {
-    //
+    int ret, dpc, local;
+    struct pollfd dpcset[1];
+
+    dpc = *(int *)arg;
+    local = *((int *)arg + 1);
+
+    dpcset[0].fd      = dpc;
+    dpcset[0].events  = POLLIN;
+    dpcset[0].revents = 0;
+
+    for (;;) {
+        dpcset[0].revents = 0;
+
+        switch (poll(dpcset, 1, 10000)) {
+            case -1:
+                err_exit("rxtx - pthread poll");
+            case 0:
+                puts("lost DPC connection");
+                send_err(local, ENETWORK);
+            default:
+                if (dpcset[0].revents != POLLIN) {
+                    //something is wrong
+                    //maybe we lost network
+                }
+
+                //could once rend() receive a whole request frame ?
+                ret = read(dpc, dpc_buf, MAXBUF);
+                if (ret == -1)
+                    err_exit("rxtx - thread read");
+                else if (ret == 0) {
+                    puts("DPC is orderly disconnected");
+                    send_err(local, EDPCCLOSE);
+                } else if (ret == 1) {
+                    if (dpc_buf[0] == DPCHEARTBEAT) {
+                        //connection with dpc is good
+                        break;
+                    }
+                    putchar(dpc_buf[0]);
+                    putchar('\n');
+                } else {
+                    //receive config requedt or data
+                    //confirm the request
+                    //tell main thread to send confirm frame
+                    //then receive config data
+                    //while dpc waiting for confirm, it still send heartbeat
+                }
+        }
+    }
 }
 
+static void send_retry(int dsk, const char *buf, int buflen, int lsk)
+{
+    int n;
+
+    for (n = 1; n <= 4; n <<= 1) {
+        if (send(dsk, buf, buflen, 0) > 0)
+            return;
+
+        perror("rxtx - send to DPC failed");
+        if (n <= 4 / 2) {
+            puts("rxtx - retry");
+            sleep(n);
+        }
+    }
+
+    send_err(lsk, ENETWORK);
+}
 
 int main(int argc, char const *argv[])
 {
-    int tty, dpc_sk, local_sk;
+    int tty, local_sk, dpc_sk;
+    int arg[2];
     int ret;
-    int baudrate = 115200;
-    struct pollfd fdset[2];
+    pthread_t tid;
+    struct pollfd fdset[1];
+    int baudrate = (argc == 2) ? atoi(argv[1]) : DEFAULTBAUD;
 
-    if (argc == 2)
-        baudrate = atoi(argv[1]);
+    local_sk = create_local_sk();
 
-    //load_profile();
+    if ((tty = uart_open(baudrate)) == -1)
+        send_err(local_sk, EOPENTTY);
 
-    local_sk = create_local_sk(LOCAL_PORT);
+    if ((dpc_sk = create_dpc_sk(DPC_ADDR, DPC_PORT)) == -1)
+        send_err(local_sk, ECONNECTDPC);
 
-    if ((tty = uart_open(baudrate)) == -1) {
-        /*
-         * sometimes we should initiatively do reset and log error information
-         * if we know what happens
-         */
-        if (send(local_sk, &EOPENTTY, 1, MSG_DONTWAIT) <= 0)
-            perror("rxtx - send EOPENTTY to main error");
+    arg[0] = dpc_sk;
+    arg[1] = local_sk;
+
+    if (pthread_create(&tid, NULL, thread_read_dpc, (void *)arg)) {
+        puts("rxtx- can't create thread");
         exit(EXIT_FAILURE);
     }
-
-    if ((dpc_sk = create_dpc_sk(DPC_ADDR, DPC_PORT)) == -1) {
-        if (send(local_sk, &ECONNECTDPC, 1, MSG_DONTWAIT) <= 0)
-            perror("rxtx - send ECONNECTDPC to main error");
-        exit(EXIT_FAILURE);
-    }
-
-    set_nonblock(dpc_sk);
 
     fdset[0].fd     = tty;
     fdset[0].events = POLLIN;
 
-    fdset[1].fd     = dpc_sk;
-    fdset[1].events = POLLIN;
-
-    //how to know the socket is disconnected in this loop
+    //if DPC is down, it takes about 15 minutes to detect without keepalive.
     for (;;) {
         fdset[0].revents = 0;
-        fdset[1].revents = 0;
-        switch (poll(fdset, 2, 10000)) {
+
+        switch (poll(fdset, 1, 10000)) {
             case -1:
                 err_exit("rxtx - poll");
             case 0:
                 puts("rxtx - no tty data, send heartbeat data");
-                if (send(dpc_sk, HB_BUF, 25, 0) < 0)
-                    err_exit("rxtx - send heartbeat");
+                send_retry(dpc_sk, HB_BUF, HB_LEN, local_sk);
                 break;
             default:
-                if (fdset[0].revents) {
-                    ret = read(tty, buffer, MAXBUF);
-                    if (ret <= 0) {
-                        perror("rxtx - read tty");
-                        break;
-                    }
-
-                    if (send(dpc_sk, buffer, ret, 0) < 0) {
-                        err_exit("rxtx - tcp send");
-                        //try again, then tell parent
-                    }
+                if ((ret = read(tty, buffer, MAXBUF)) <= 0) {
+                    perror("rxtx - read tty data");
+                    break;
                 }
-                if (fdset[1].revents) {
-                    //receive dpc configure data
-                }
+                send_retry(dpc_sk, buffer, ret, local_sk);
         }
     }
 

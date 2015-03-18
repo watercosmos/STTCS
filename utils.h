@@ -13,15 +13,19 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#define LOCAL_PORT  1090
+#define DEFAULTBAUD 3500000
+
 /*
  **************** protocol with main application ****************
  */
 
-const char err[2] = { '1', '2'};
-#define EOPENTTY      err[0]
-#define ECONNECTDPC   err[1]
-#define ISEOPENTTY    '1'
-#define ISECONNECTDPC '2'
+#define EOPENTTY    '1'
+#define ECONNECTDPC '2'
+#define ENETWORK    '3'
+#define EDPCCLOSE   '4'
+
+#define DPCHEARTBEAT '9'
 
 
 /*
@@ -235,14 +239,14 @@ int uart_open(int baudrate)
     speed_t speed;
     struct termios cfg;
 
-    speed = getBaudrate(baudrate);
-    if (speed == -1) {
+    printf("%d\n", baudrate);
+
+    if ((speed = getBaudrate(baudrate)) == -1) {
         fprintf(stderr, "Invalid baudrate\n");
         return -1;
     }
 
-    fd = open("/dev/ttyHSL0", O_RDWR | 0);
-    if (fd == -1) {
+    if ((fd = open("/dev/ttyHSL0", O_RDWR | 0)) == -1) {
         perror("Cannot open ttyHSL0");
         return -1;
     }
@@ -271,61 +275,7 @@ int uart_open(int baudrate)
  ***************************** TCP *****************************
  */
 
-/*
- *  Return socket number if connected, -1 if not.
- */
-int create_dpc_sk(char *ip, uint16_t port)
-{
-    int sk;
-    int count = 0;
-    struct sockaddr_in addr;
-
-    if ((sk = socket(AF_INET, SOCK_STREAM, 0)) == -1) //should set heartbeet
-        err_exit("rxtx - socket");
-
-    memset(&addr, 0, sizeof(struct sockaddr_in));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    if (inet_aton(ip, &addr.sin_addr) == 0) {
-        fprintf(stderr, "rxtx - Invalid ip address\n");
-        exit(EXIT_FAILURE);
-    }
-
-    //if no refuse, tcp connect will block
-    while (connect(sk, (struct sockaddr *)&addr,
-            sizeof(struct sockaddr)) == -1) {
-        count++;
-        if (count > 2) {
-            puts("rxtx - connect failed, give up");
-            return -1;
-        }
-        perror("rxtx - connect failed, retry");
-        sleep(3);
-    }
-
-    return sk;
-}
-
-int create_local_sk(uint16_t port)
-{
-    int sk;
-    struct sockaddr_in addr;
-
-    if ((sk = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        err_exit("rxtx - socket");
-
-    memset(&addr, 0, sizeof(struct sockaddr_in));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    if (connect(sk, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1)
-        err_exit("rxtx - socket");
-
-    return sk;
-}
-
-void set_nonblock(int sock)
+static void set_nonblock(int sock)
 {
     int opts;
 
@@ -336,4 +286,72 @@ void set_nonblock(int sock)
 
     if (fcntl(sock, F_SETFL, opts) == -1)
         err_exit("fcntl F_SETFL");
+}
+
+static int connect_retry(int sock, const struct sockaddr *addr)
+{
+    int n;
+
+    for (n = 1; n <= 4; n <<= 1) {
+        if (connect(sock, addr, sizeof(struct sockaddr)) == 0) {
+            puts("rxtx - DPC is connected");
+            return 0;
+        }
+        perror("rxtx - connet to DPC failed");
+        if (n <= 4 / 2) {
+            puts("rxtx - retry");
+            sleep(n);
+        }
+    }
+
+    return -1;
+}
+
+/*
+ *  Return socket number if connected, -1 if not.
+ */
+int create_dpc_sk(char *ip, uint16_t port)
+{
+    int sk;
+    int count = 0;
+    struct sockaddr_in addr;
+
+    if ((sk = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+        err_exit("rxtx - socket");
+
+    memset(&addr, 0, sizeof(struct sockaddr_in));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    if (inet_aton(ip, &addr.sin_addr) == 0) {
+        fprintf(stderr, "rxtx - Invalid ip address\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (connect_retry(sk, (struct sockaddr *)&addr) == -1)
+        return -1;
+
+    set_nonblock(sk);
+
+    return sk;
+}
+
+int create_local_sk(void)
+{
+    int sk;
+    struct sockaddr_in addr;
+
+    if ((sk = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+        err_exit("rxtx - socket");
+
+    memset(&addr, 0, sizeof(struct sockaddr_in));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(LOCAL_PORT);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (connect(sk, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1)
+        err_exit("rxtx - local connect");
+
+    set_nonblock(sk);
+
+    return sk;
 }

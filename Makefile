@@ -5,7 +5,7 @@ main: main.c utils.h
 	@arm-linux-gnueabi-gcc -o main main.c -static
 	@echo ... ./main
 rxtx: rxtx.c utils.h
-	@arm-linux-gnueabi-gcc -o rxtx rxtx.c -static
+	@arm-linux-gnueabi-gcc -o rxtx rxtx.c -static -pthread
 	@echo ... ./rxtx
 sink: sink.c utils.h
 	@arm-linux-gnueabi-gcc -o sink sink.c -static
