@@ -13,8 +13,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#define LOCAL_PORT  1090
 #define DEFAULTBAUD 3500000
+#define MAXBUF      4096
+#define LOCAL_PORT  1090
+#define DPC_PORT    11235
+//#define DPC_ADDR    "192.168.1.130"
+#define DPC_ADDR    "192.168.43.1"
 
 /*
  **************** protocol with main application ****************
@@ -34,6 +38,9 @@
 
 #define err_exit(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+#define puts_exit(msg) \
+    do { puts(msg); exit(EXIT_FAILURE); } while (0)
 
 /*
  ***************************** GPIO *****************************
@@ -239,8 +246,6 @@ int uart_open(int baudrate)
     speed_t speed;
     struct termios cfg;
 
-    printf("%d\n", baudrate);
-
     if ((speed = getBaudrate(baudrate)) == -1) {
         fprintf(stderr, "Invalid baudrate\n");
         return -1;
@@ -280,12 +285,12 @@ static void set_nonblock(int sock)
     int opts;
 
     if ((opts = fcntl(sock, F_GETFL)) == -1)
-        err_exit("fcntl F_GETFL");
+        err_exit("... rxtx: fcntl F_GETFL");
 
     opts |= O_NONBLOCK;
 
     if (fcntl(sock, F_SETFL, opts) == -1)
-        err_exit("fcntl F_SETFL");
+        err_exit("... rxtx: fcntl F_SETFL");
 }
 
 static int connect_retry(int sock, const struct sockaddr *addr)
@@ -294,22 +299,21 @@ static int connect_retry(int sock, const struct sockaddr *addr)
 
     for (n = 1; n <= 4; n <<= 1) {
         if (connect(sock, addr, sizeof(struct sockaddr)) == 0) {
-            puts("rxtx - DPC is connected");
+            puts("... rxtx: connected to DPC");
             return 0;
         }
-        perror("rxtx - connet to DPC failed");
+        perror("... rxtx: connet to DPC failed");
         if (n <= 4 / 2) {
-            puts("rxtx - retry");
+            puts("... rxtx: retry");
             sleep(n);
         }
     }
 
+    puts("... rxtx: give up");
+
     return -1;
 }
 
-/*
- *  Return socket number if connected, -1 if not.
- */
 int create_dpc_sk(char *ip, uint16_t port)
 {
     int sk;
@@ -317,15 +321,13 @@ int create_dpc_sk(char *ip, uint16_t port)
     struct sockaddr_in addr;
 
     if ((sk = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        err_exit("rxtx - socket");
+        err_exit("... rxtx: dpc socket");
 
     memset(&addr, 0, sizeof(struct sockaddr_in));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    if (inet_aton(ip, &addr.sin_addr) == 0) {
-        fprintf(stderr, "rxtx - Invalid ip address\n");
-        exit(EXIT_FAILURE);
-    }
+    if (inet_aton(ip, &addr.sin_addr) == 0)
+        puts_exit("... rxtx: invalid DPC ip address");
 
     if (connect_retry(sk, (struct sockaddr *)&addr) == -1)
         return -1;
@@ -341,7 +343,7 @@ int create_local_sk(void)
     struct sockaddr_in addr;
 
     if ((sk = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        err_exit("rxtx - socket");
+        err_exit("... rxtx: local socket");
 
     memset(&addr, 0, sizeof(struct sockaddr_in));
     addr.sin_family = AF_INET;
@@ -349,9 +351,34 @@ int create_local_sk(void)
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (connect(sk, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1)
-        err_exit("rxtx - local connect");
+        err_exit("... rxtx: local connect");
 
     set_nonblock(sk);
 
     return sk;
+}
+
+void send_err(int sock, char ERR)
+{
+    if (send(sock, &ERR, 1, 0) <= 0)
+        perror("... rxtx: send ERR to main%s\n");
+    exit(EXIT_FAILURE);
+}
+
+void send_retry(int dsk, const char *buf, int buflen, int lsk)
+{
+    int n;
+
+    for (n = 1; n <= 4; n <<= 1) {
+        if (send(dsk, buf, buflen, 0) > 0)
+            return;
+
+        perror("... rxtx: send to DPC failed");
+        if (n <= 4 / 2) {
+            puts("... rxtx: retry");
+            sleep(n);
+        }
+    }
+
+    send_err(lsk, ENETWORK);
 }

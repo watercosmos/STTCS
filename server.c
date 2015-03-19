@@ -9,9 +9,8 @@
 #include <fcntl.h>
 #include <poll.h>
 
-#define MAX_BUF 4096
-#define PORT    11235
-#define ADDR    "192.168.1.130"
+#define PORT         11235
+#define MAX_BUF      4096
 #define DPCHEARTBEAT '9'
 
 #define err_exit(msg) \
@@ -32,6 +31,8 @@ static int send_retry(int dsk, char buf, int buflen)
             sleep(n);
         }
     }
+
+    puts("give up");
 
     return -1;
 }
@@ -86,8 +87,7 @@ DISCONNECT:
                 inet_ntoa(client_addr.sin_addr),
                 ntohs(client_addr.sin_port));
 
-        fd = open("recvfile", O_RDWR | O_CREAT | O_TRUNC, 0777);
-        if (fd == -1)
+        if ((fd = open("recvfile", O_RDWR | O_CREAT | O_TRUNC, 0777)) == -1)
             err_exit("recvfile open error");
 
         flag = 1;
@@ -99,7 +99,7 @@ DISCONNECT:
         for (;;) {
             fdset[0].revents = 0;
 
-            switch (poll(fdset, 1, 5000)) {
+            switch (poll(fdset, 1, 10000)) {
                 case -1:
                     err_exit("poll");
                 case 0:

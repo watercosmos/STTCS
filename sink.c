@@ -1,30 +1,27 @@
 #include "utils.h"
 
-#define MAXBUF 4096
-#define DEFAULTBAUD 3500000
-
 int main(int argc, char const *argv[])
 {
     int tty;
     FILE *out;
     char buffer[MAXBUF];
-    int baudrate = DEFAULTBAUD;
+    int baudrate = (argc == 2) ? atoi(argv[1]) : DEFAULTBAUD;
 
-    if (argc == 2)
-        baudrate = atoi(argv[1]);
+    printf("... sink: baudrate is %d\n", baudrate);
+
     tty = uart_open(baudrate);
     if (tty == -1)
-        exit(EXIT_FAILURE);
+        puts_exit("... sink: can't open tty");
 
     if ((out = fdopen(tty, "a")) == NULL)
-        err_exit("file open");
+        err_exit("... sink: can't open standard i/o stream");
 
     for (;;) {
         if (fgets(buffer, MAXBUF, stdin) == NULL)
-            err_exit("read done or error");
+            puts_exit("... sink: send done");
 
         if (fputs(buffer, out) == EOF)
-            err_exit("write error");
+            err_exit("... sink: write error");
     }
 
     exit(0);

@@ -1,7 +1,7 @@
 .PHNOY: all clean
-all: main rxtx sink server
+all: main rxtx sink server arm-server
 
-main: main.c utils.h
+main: main.c
 	@arm-linux-gnueabi-gcc -o main main.c -static
 	@echo ... ./main
 rxtx: rxtx.c utils.h
@@ -13,6 +13,8 @@ sink: sink.c utils.h
 server: server.c
 	@gcc -o server server.c
 	@echo ... ./server
-
+arm-server: server.c
+	@arm-linux-gnueabi-gcc -o arm-server server.c -static
+	@echo ... ./arm-server
 clean:
-	@rm main rxtx server sink
+	@rm main rxtx server sink arm-server recvfile
