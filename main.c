@@ -10,6 +10,7 @@
 #define MAXBUF  32
 #define MAXLINE 256
 
+//network operation
 #define WIFION       1
 #define WIFIOFF      2
 #define MOBILEON     3
@@ -17,24 +18,85 @@
 #define CONNECTIVITY 5
 #define WIFICHECK    6
 
+//error message from "rxtx" child process
 #define EOPENTTY    '1'
 #define ECONNECTDPC '2'
 #define ENETWORK    '3'
 #define EDPCCLOSE   '4'
 
 #define LOCAL_PORT  1090
-#define DEFAULTBAUD "3500000"
 
 #define err_exit(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
+#define puts_exit(msg) \
+    do { puts(msg); exit(EXIT_FAILURE); } while (0)
 
-static unsigned char buffer[MAXBUF] = { '\0' };
+//default configuration
+static char IP[16]   = "192.168.1.130";
+static int  PORT     = 11235;
+static int  BAUDRATE = 3500000;
 
-static void load_profile(void)
+static int is_comment(char *str)
 {
-    //read ./.config
-    //assemble the parameters for rxtx
+    for (; *str != '\0' && isblank(*str); ++str);
+
+    if (str[0] == '#' || isblank(str[0]) || str[0] == '\n')
+        return 1;
+    return 0;
+}
+
+static char * del_both_trim(char * str)
+{
+    char *ch;
+
+    for (; *str != '\0' && isblank(*str); ++str);
+
+    for (ch = str + strlen(str) - 1;
+         ch >= str && (isblank(*ch) || *ch == '\n'); --ch);
+
+    *(++ch) = '\0';
+
+    return str;
+}
+
+static void read_cfg(void)
+{
+    FILE *fp;
+    char buf[64];
+    char *delim = "=";
+    char *item, *key, *value;
+
+    if ((fp = fopen("./.config", "r")) == NULL) {
+        if (errno == ENOENT) {
+            puts("... main: no ./.config, use default parameters");
+            return;
+        } else
+            err_exit("... main: open ./.config error");
+    }
+
+    //make sure once .config is exist, it is never a blank file
+    while ((item = fgets(buf, sizeof(buf), fp)) != NULL) {
+        if (is_comment(item))
+            continue;
+
+        key = del_both_trim(strtok(buf, delim));
+        value = del_both_trim(strtok(NULL, delim));
+
+        if (!value)
+            puts_exit("... main: config file syntax error");
+
+        if (!strncmp(key, "DPC_IP", 6))
+            strcpy(IP, value);
+        else if (!strncmp(key, "DPC_PORT", 8))
+            PORT = atoi(value);
+        else if (!strncmp(key, "BAUDRATE", 8))
+            BAUDRATE = atoi(value);
+        else
+            puts_exit("... main: config file syntax error");
+    }
+
+    printf("... main: ip: %s\nport: %d\nbaudrate: %d\n", IP, PORT, BAUDRATE);
 }
 
 /*
@@ -77,7 +139,7 @@ static int network_manager(int cmd)
     char arg[4];
     int rlen, offset;
 
-    sprintf(arg, "%d", cmd);
+    snprintf(arg, 4, "%d", cmd);
 
     if (pipe(fd) < 0)
         err_exit("... main: pipe");
@@ -120,10 +182,10 @@ static int network_manager(int cmd)
             break;
         case CONNECTIVITY:
             if (line[35] == '0') {    //0% packet loss
-                puts("... main: check result: network is available");
+                puts("... main: network is available");
                 break;
             }
-            puts("... main: check result: network is not available");
+            puts("... main: network is not available");
             return -1;
         case WIFICHECK:
             if (line[9] == 'e') {
@@ -166,15 +228,20 @@ static void check_network(void)
 /*
  * launch "rxtx" child process, return process id
  */
-static pid_t launch_rxtx(const char *baudrate)
+static pid_t launch_rxtx(void)
 {
     pid_t pid;
+    char port[8];
+    char baudrate[8];
+
+    snprintf(port, 8, "%d", PORT);
+    snprintf(baudrate, 8, "%d", BAUDRATE);
 
     if ((pid = fork()) < 0)
         err_exit("... main: fork error");
     else if (pid == 0) {
         printf("... rxtx: start, pid is %ld\n", (long)getpid());
-        if (execl("./rxtx", "rxtx", baudrate, (char *)NULL) == -1)
+        if (execl("./rxtx", "rxtx", IP, port, baudrate, (char *)NULL) == -1)
             err_exit("... rxtx: execl error");
     }
 
@@ -218,6 +285,7 @@ static int accept_child(int sock)
 static int serve(int sock)
 {
     struct pollfd fdset[1];
+    char   buffer[MAXBUF];
 
     fdset[0].fd     = sock;
     fdset[0].events = POLLIN;
@@ -300,10 +368,11 @@ static void clean_child(pid_t pid)
 int main(int argc, char const *argv[])
 {
     int sk;
-    const char *baudrate = DEFAULTBAUD;
 
     if (argc == 2)
-        baudrate = argv[1];
+        BAUDRATE = atoi(argv[1]);
+
+    read_cfg();
 
     sk = init_sock();
 
@@ -313,7 +382,7 @@ int main(int argc, char const *argv[])
 
         check_network();
 
-        pid = launch_rxtx(baudrate);
+        pid = launch_rxtx();
 
         if ((child_sk = accept_child(sk)) == -1) {
             clean_child(pid);

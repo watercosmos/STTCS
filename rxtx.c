@@ -1,5 +1,4 @@
 #include "utils.h"
-#include <pthread.h>
 
 #define HB_LEN 25
 static const char HB_BUF[] = "This is heartbeat frame.\n";
@@ -66,7 +65,8 @@ int main(int argc, char const *argv[])
     int rlen;
     pthread_t tid;
     struct pollfd fdset[1];
-    int baudrate = (argc == 2) ? atoi(argv[1]) : DEFAULTBAUD;
+    int port     = atoi(argv[2]);
+    int baudrate = atoi(argv[3]);
 
     local_sk = create_local_sk();
 
@@ -75,7 +75,7 @@ int main(int argc, char const *argv[])
     if ((tty = uart_open(baudrate)) == -1)
         send_err(local_sk, EOPENTTY);
 
-    if ((dpc_sk = create_dpc_sk(DPC_ADDR, DPC_PORT)) == -1)
+    if ((dpc_sk = create_dpc_sk(argv[1], port)) == -1)
         send_err(local_sk, ECONNECTDPC);
 
     arg[0] = dpc_sk;

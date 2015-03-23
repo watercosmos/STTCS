@@ -12,13 +12,11 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <pthread.h>
 
-#define DEFAULTBAUD 3500000
 #define MAXBUF      4096
 #define LOCAL_PORT  1090
-#define DPC_PORT    11235
-//#define DPC_ADDR    "192.168.1.130"
-#define DPC_ADDR    "192.168.43.1"
+//#define DPC_ADDR    "192.168.43.1"
 
 /*
  **************** protocol with main application ****************
@@ -314,7 +312,7 @@ static int connect_retry(int sock, const struct sockaddr *addr)
     return -1;
 }
 
-int create_dpc_sk(char *ip, uint16_t port)
+int create_dpc_sk(const char *ip, uint16_t port)
 {
     int sk;
     int count = 0;
@@ -328,6 +326,8 @@ int create_dpc_sk(char *ip, uint16_t port)
     addr.sin_port = htons(port);
     if (inet_aton(ip, &addr.sin_addr) == 0)
         puts_exit("... rxtx: invalid DPC ip address");
+
+    printf("... rxtx: connect to DPC: %s:%d\n", ip, port);
 
     if (connect_retry(sk, (struct sockaddr *)&addr) == -1)
         return -1;

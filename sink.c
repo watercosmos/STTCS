@@ -5,7 +5,7 @@ int main(int argc, char const *argv[])
     int tty;
     FILE *out;
     char buffer[MAXBUF];
-    int baudrate = (argc == 2) ? atoi(argv[1]) : DEFAULTBAUD;
+    int baudrate = (argc == 2) ? atoi(argv[1]) : 3500000;
 
     printf("... sink: baudrate is %d\n", baudrate);
 
