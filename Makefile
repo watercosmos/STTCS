@@ -1,20 +1,24 @@
 .PHNOY: all clean
-all: main rxtx sink server arm-server
+all: main rxtx sink server arm-server cgi
 
-main: main.c
-	@arm-linux-gnueabi-gcc -o main main.c -static
+main: ./src/main.c
+	@arm-linux-gnueabi-gcc -o main ./src/main.c -static
 	@echo ... ./main
-rxtx: rxtx.c utils.h
-	@arm-linux-gnueabi-gcc -o rxtx rxtx.c -static -pthread
+rxtx: ./src/rxtx.c ./src/utils.h
+	@arm-linux-gnueabi-gcc -o rxtx ./src/rxtx.c -static -pthread
 	@echo ... ./rxtx
-sink: sink.c utils.h
-	@arm-linux-gnueabi-gcc -o sink sink.c -static
+sink: ./src/sink.c ./src/utils.h
+	@arm-linux-gnueabi-gcc -o sink ./src/sink.c -static
 	@echo ... ./sink
-server: server.c
-	@gcc -o server server.c
+server: ./src/server.c
+	@gcc -o server ./src/server.c
 	@echo ... ./server
-arm-server: server.c
-	@arm-linux-gnueabi-gcc -o arm-server server.c -static
+arm-server: ./src/server.c
+	@arm-linux-gnueabi-gcc -o arm-server ./src/server.c -static
 	@echo ... ./arm-server
+cgi: ./src/cgi.c
+	@arm-linux-gnueabi-gcc -o cgi ./src/cgi.c -static
+	@echo ... ./cgi
+
 clean:
-	@rm main rxtx server sink arm-server recvfile
+	@rm main rxtx server sink arm-server recvfile cgi
