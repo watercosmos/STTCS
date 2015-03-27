@@ -1,5 +1,5 @@
 .PHNOY: all clean
-all: main rxtx sink server arm-server cgi
+all: main rxtx sink server arm-server ./res/cgi httpd
 
 main: ./src/main.c
 	@arm-linux-gnueabi-gcc -o main ./src/main.c -static
@@ -16,9 +16,12 @@ server: ./src/server.c
 arm-server: ./src/server.c
 	@arm-linux-gnueabi-gcc -o arm-server ./src/server.c -static
 	@echo ... ./arm-server
-cgi: ./src/cgi.c
-	@arm-linux-gnueabi-gcc -o cgi ./src/cgi.c -static
+httpd: ./src/httpd.c
+	@arm-linux-gnueabi-gcc -o httpd ./src/httpd.c -static -pthread
+	@echo ... ./httpd
+./res/cgi: ./src/cgi.c
+	@arm-linux-gnueabi-gcc -o ./res/cgi ./src/cgi.c -static
 	@echo ... ./cgi
 
 clean:
-	@rm main rxtx server sink arm-server recvfile cgi
+	@rm main rxtx server sink arm-server ./res/cgi httpd recvfile
