@@ -32,7 +32,8 @@ int main(int argc, char const *argv[])
         puts_exit("no baudrate");
     baudrate = atoi(env);
 
-    if ((fp = fopen("../.config", "w")) == NULL)
+    //cgi inherits httpd's current working directory
+    if ((fp = fopen("./.config", "w")) == NULL)
         err_exit("open .config");
 
     snprintf(buf, 25, "DPC_IP = %s", ip);

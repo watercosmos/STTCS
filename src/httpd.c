@@ -4,14 +4,6 @@
  * CSE 4344 (Network concepts), Prof. Zeigler
  * University of Texas at Arlington
  */
-/* This program compiles for Sparc Solaris 2.6.
- * To compile for Linux:
- *  1) Comment out the #include <pthread.h> line.
- *  2) Comment out the line that defines the variable newthread.
- *  3) Comment out the two lines that run pthread_create().
- *  4) Uncomment the line that runs accept_request().
- *  5) Remove -lsocket from the Makefile.
- */
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -107,9 +99,9 @@ void * accept_request(void *arg)
 
     sprintf(path, "res%s", url);
     if (path[strlen(path) - 1] == '/')
-        strcat(path, "index.html");
+        strcat(path, "index.html"); //index.html can't have execute permission
     if (stat(path, &st) == -1) {
-        /* read & discard headers */
+        // read & discard headers
         while ((rlen > 0) && strcmp("\n", buf))
             rlen = get_line(client, buf, sizeof(buf));
         not_found(client);
@@ -324,7 +316,7 @@ int get_line(int sock, char *buf, int size)
 void headers(int client, const char *filename)
 {
     char buf[1024];
-    (void)filename;  /* could use filename to determine file type */
+    (void)filename;  // could use filename to determine file type
 
     strcpy(buf, "HTTP/1.0 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
@@ -393,7 +385,7 @@ void serve_file(int client, const char *filename)
     char buf[1024];
 
     buf[0] = '\0';
-    while ((rlen > 0) && strcmp("\n", buf))  /* read & discard headers */
+    while ((rlen > 0) && strcmp("\n", buf))  // read & discard headers
         rlen = get_line(client, buf, sizeof(buf));
 
     if ((resource = fopen(filename, "r")) == NULL)
@@ -428,7 +420,7 @@ int startup(u_short *port)
 
     if (bind(sk, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) < 0)
         err_exit("bind");
-    /* if dynamically allocating a port */
+    // if dynamically allocating a port
     if (*port == 0) {
         socklen_t addrlen = sizeof(struct sockaddr_in);
         if (getsockname(sk, (struct sockaddr *)&addr, &addrlen) == -1)

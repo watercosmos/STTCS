@@ -17,6 +17,7 @@
 #define MOBILEOFF    4
 #define CONNECTIVITY 5
 #define WIFICHECK    6
+#define APMODE       7
 
 //error message from "rxtx" child process
 #define EOPENTTY    '1'
@@ -185,7 +186,7 @@ static int network_manager(int cmd)
                 puts("... main: network is available");
                 break;
             }
-            puts("... main: network is not available");
+            puts("... main: network is unavailable");
             return -1;
         case WIFICHECK:
             if (line[9] == 'e') {
@@ -198,18 +199,21 @@ static int network_manager(int cmd)
                 puts("... main: Wi-Fi is strange");
                 return -1;
             }
+        case APMODE:
+            puts("... main: start AP mode");
+            return 0;
         default:
             break;
     }
     return 0;
 }
 
-static void check_network(void)
+static void check_network(int sk)
 {
     network_manager(MOBILEON);
-    sleep(1);
+    sleep(2);
     network_manager(WIFION);
-    sleep(3);
+    sleep(2);
 
     //should check available ssid
 
@@ -217,10 +221,15 @@ static void check_network(void)
         return;
 
     network_manager(WIFIOFF);
-    sleep(3);
+    sleep(2);
 
     if (network_manager(CONNECTIVITY) == -1) {
         puts("... main: network is unavailable");
+        network_manager(APMODE);
+        close(sk);
+        puts("... main: start http server");
+        if (execlp("./httpd", "httpd", (char *)0) == -1)
+            err_exit("... main: exec httpd");
         exit(EXIT_FAILURE);
     }
 }
@@ -380,7 +389,7 @@ int main(int argc, char const *argv[])
         pid_t pid;
         int   child_sk;
 
-        check_network();
+        check_network(sk);
 
         pid = launch_rxtx();
 
