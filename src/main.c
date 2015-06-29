@@ -34,7 +34,7 @@
     do { puts(msg); exit(EXIT_FAILURE); } while (0)
 
 //default configuration
-static char IP[16]   = "192.168.1.130";
+static char IP[16]   = "104.224.158.114";
 static int  PORT     = 11235;
 static int  BAUDRATE = 3500000;
 
@@ -70,7 +70,7 @@ static void read_cfg(void)
 
     if ((fp = fopen("./.config", "r")) == NULL) {
         if (errno == ENOENT) {
-            puts("... main: no ./.config, use default parameters");
+            puts("... main: no \"./.config\", use default parameters");
             return;
         } else
             err_exit("... main: open ./.config error");
@@ -97,7 +97,8 @@ static void read_cfg(void)
             puts_exit("... main: config file syntax error");
     }
 
-    printf("... main: ip: %s\nport: %d\nbaudrate: %d\n", IP, PORT, BAUDRATE);
+    printf("... main: ip: %s\n          port: %d\n          baudrate: %d\n",
+           IP, PORT, BAUDRATE);
 }
 
 /*
@@ -187,25 +188,25 @@ static int network_manager(int cmd)
                 break;
             }
             puts("... main: network is unavailable");
-            return -1;
+            return 0;
         case WIFICHECK:
             if (line[9] == 'e') {
                 puts("... main: Wi-Fi is enabled");
-                return 0;
+                break;
             } else if (line[9] == 'd') {
                 puts("... main: Wi-Fi is disabled");
-                return -1;
+                return 0;
             } else {
                 puts("... main: Wi-Fi is strange");
-                return -1;
+                return 0;
             }
         case APMODE:
             puts("... main: start AP mode");
-            return 0;
+            break;
         default:
             break;
     }
-    return 0;
+    return 1;
 }
 
 static void check_network(int sk)
@@ -217,19 +218,20 @@ static void check_network(int sk)
 
     //should check available ssid
 
-    if (network_manager(CONNECTIVITY) == 0)
+    if (network_manager(CONNECTIVITY))
         return;
 
     network_manager(WIFIOFF);
     sleep(2);
 
-    if (network_manager(CONNECTIVITY) == -1) {
+    if (!network_manager(CONNECTIVITY)) {
         puts("... main: network is unavailable");
         network_manager(APMODE);
         close(sk);
         puts("... main: start http server");
         if (execlp("./httpd", "httpd", (char *)0) == -1)
             err_exit("... main: exec httpd");
+        //after configuration, this process should run again
         exit(EXIT_FAILURE);
     }
 }
@@ -321,7 +323,7 @@ static int serve(int sock)
                 err_exit("... main: poll");
             case 0:
                 //watch dog here
-                puts("... main: everything is fine");
+                //puts("... main: everything is fine");
                 break;
             default:
                 //child will never orderly disconnect
@@ -333,16 +335,16 @@ static int serve(int sock)
                 //logfile should be recorded
                 switch (buffer[0]) {
                     case EOPENTTY:
-                        puts("... main: EOPENTTY: rxtx open tty error");
+                        puts("... main: rxtx open tty error");
                         return -1;
                     case ECONNECTDPC:
-                        puts("... main: ECONNECTDPC: rxtx can't connect to DPC");
+                        puts("... main: rxtx can't connect to DPC");
                         return -1;
                     case ENETWORK:
-                        puts("... main: ENETWORK: DPC is unreachable");
+                        puts("... main: DPC is unreachable");
                         return -1;
                     case EDPCCLOSE:
-                        puts("... main: EDPCCLOSE: DPC initiatively closed");
+                        puts("... main: DPC initiatively closed");
                         return -1;
                     default:
                         printf("... main: %s\n", buffer);
