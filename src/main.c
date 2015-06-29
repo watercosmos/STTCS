@@ -226,11 +226,11 @@ static void check_network(int sk)
 
     if (!network_manager(CONNECTIVITY)) {
         puts("... main: network is unavailable");
-        network_manager(APMODE);
+        //network_manager(APMODE);
         close(sk);
-        puts("... main: start http server");
-        if (execlp("./httpd", "httpd", (char *)0) == -1)
-            err_exit("... main: exec httpd");
+        //puts("... main: start http server");
+        //if (execlp("./httpd", "httpd", (char *)0) == -1)
+        //    err_exit("... main: exec httpd");
         //after configuration, this process should run again
         exit(EXIT_FAILURE);
     }

@@ -35,7 +35,7 @@ static void * thread_read_dpc(void *arg)
                     puts("... rxtx: someting is wrong");
                 }
 
-                //could once rend() receive a whole request frame ?
+                //could once read() receive a whole request frame ?
                 ret = read(dpc, dpc_buf, MAXBUF);
                 if (ret == -1)
                     err_exit("... rxtx: thread read");

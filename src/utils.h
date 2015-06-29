@@ -370,7 +370,7 @@ void send_retry(int dsk, const char *buf, int buflen, int lsk)
     int n;
 
     for (n = 1; n <= 4; n <<= 1) {
-        if (send(dsk, buf, buflen, 0) > 0)
+        if (send(dsk, buf, buflen, 0) == buflen)
             return;
 
         perror("... rxtx: send to DPC failed");
