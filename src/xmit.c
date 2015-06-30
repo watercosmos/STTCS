@@ -58,7 +58,7 @@ int main(int argc, char const *argv[])
     //this part is used for sending from uart
     int tty, rlen, n;
     int color = 0;
-    int baudrate = (argc == 2) ? atoi(argv[1]) : 3500000;
+    int baudrate = (argc == 2) ? atoi(argv[1]) : 115200;
 
     char frame1[31] = { 0x7e, 0x00, 0x1f, 0x00, 0x01,
                         0x00, 0x03, 0x00, 0x00, 0x00,

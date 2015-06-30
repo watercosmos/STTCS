@@ -36,7 +36,7 @@
 //default configuration
 static char IP[16]   = "104.224.158.114";
 static int  PORT     = 11235;
-static int  BAUDRATE = 3500000;
+static int  BAUDRATE = 115200;
 
 static int is_comment(char *str)
 {
