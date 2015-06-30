@@ -1,5 +1,6 @@
 .PHNOY: all clean
-all: main rxtx sink server arm-server ./res/cgi httpd
+# all: main rxtx sink server arm-server ./res/cgi httpd
+all: main rxtx xmit
 
 main: ./src/main.c
 	@arm-linux-gnueabi-gcc -o main ./src/main.c -static
