@@ -17,17 +17,22 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #define ISspace(x) isspace((int)(x))
 
 #define err_exit(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
+#define puts_exit(msg) \
+    do { puts(msg); exit(EXIT_FAILURE); } while (0)
 
 #define SERVER_STRING "Server: jdbhttpd/0.1.0\r\n"
 
 void * accept_request(void *);
 void bad_request(int);
-void cat(int, FILE *);
+static int is_comment(char *);
+static char * del_both_trim(char *);
+void get_html(int);
 void cannot_execute(int);
 void execute_cgi(int, const char *, const char *, const char *);
 int get_line(int, char *, int);
@@ -37,6 +42,149 @@ void post_confirm(int);
 void serve_file(int, const char *);
 int startup(u_short *);
 void unimplemented(int);
+
+static int is_comment(char *str)
+{
+    for (; *str != '\0' && isblank(*str); ++str);
+
+    if (str[0] == '#' || isblank(str[0]) || str[0] == '\n')
+        return 1;
+    return 0;
+}
+
+static char * del_both_trim(char * str)
+{
+    char *ch;
+
+    for (; *str != '\0' && isblank(*str); ++str);
+
+    for (ch = str + strlen(str) - 1;
+         ch >= str && (isblank(*ch) || *ch == '\n'); --ch);
+
+    *(++ch) = '\0';
+
+    return str;
+}
+
+void get_html(int client)
+{
+    FILE *fp;
+    char buf[102400];
+    char *delim = "=";
+    char *item, *key, *value;
+    char ip[16];
+    char port[6];
+    char baudrate[10];
+
+    int rlen = 1;
+    char discard[1024];
+
+    discard[0] = '\0';
+    while ((rlen > 0) && strcmp("\n", buf))  // read & discard headers
+        rlen = get_line(client, buf, sizeof(buf));
+
+    headers(client, NULL);
+
+    if ((fp = fopen("./.config", "r")) == NULL) {
+        if (errno == ENOENT) {
+            puts("...httpd: no ./.config, use default parameters");
+            return;
+        } else
+            err_exit("... httpd: open ./.config error");
+    }
+
+    //make sure once .config is exist, it is never a blank file
+    while ((item = fgets(buf, sizeof(buf), fp)) != NULL) {
+        if (is_comment(item))
+            continue;
+
+        key = del_both_trim(strtok(buf, delim));
+        value = del_both_trim(strtok(NULL, delim));
+
+        if (!value)
+            puts_exit("... httpd: config file syntax error");
+        if (!strncmp(key, "DPC_IP", 6))
+            strcpy(ip, value);
+        else if (!strncmp(key, "DPC_PORT", 8))
+            strcpy(port, value);
+        else if (!strncmp(key, "BAUDRATE", 8))
+            strcpy(baudrate, value);
+    }
+    strcpy(buf,"<!DOCTYPE html><html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"\r\n>");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<title>demo form</title></head><body><div id=\"wrapper\"><h1>Demo Form</h1><form action=\"cgi\" name=\"cgi\"  method=\"post\" >\"\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-2\"><label>IP<input placeholder=\"");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,ip);
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"\"id=\"IP\" name=\"ip\" tabindex=\"1\"></label></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-2\"><label>Port<input placeholder=\"");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,port);
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"\"id=\"port\" name=\"port\" tabindex=\"2\"></label></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-3\"><label>Baudrate<input placeholder=\"");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,baudrate);
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"\"id=\"baudrate\" name=\"baudrate\" tabindex=\"3\"></label></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-3\"><label>1<input placeholder=\"write here\" id=\"1\" name=\"1\" tabindex=\"4\"></label></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-3\" style=\"height:85px;\"><label>2<select tabindex=\"5\"><option>option 1</option><option>option 2</option><option>option 3</option></select></label></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-4\"><label>3<input placeholder=\"write here\" id=\"3\" name=\"3\" tabindex=\"6\"></label></div><div class=\"col-4\">\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<label>4<input placeholder=\"write here\" id=\"4\" name=\"4\" tabindex=\"7\"></label></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-4\" style=\"height: 81px;\"><label>choose 1 ?</label><center style=\"position:relative; margin-bottom:8px;\"><input type=\"checkbox\"></center></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-4 switch\" style=\"height: 80px;\"><label>choose 2 ?</label><center style=\"position:relative;margin-bottom:8px;\"><input type=\"checkbox\"></center></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<div class=\"col-submit\"><button class=\"submitbtn\" type=\"submit\">Submit Form</button></div><div class=\"col-submit\"><button class=\"resetbtn\" type=\"reset\">Reset Form</button></div>\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"<style>@import url(http://fonts.googleapis.com/css?family=Laila:400,700);html { overflow-y: scroll; }body {font-family: Arial, Tahoma, sans-serif;background: #e2eef4;font-size: 62.5%;line-height: 1;padding-top: 40px;}br { display: block; line-height: 1.6em; }\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"input, textarea { -webkit-font-smoothing: antialiased;outline: none; }strong, b { font-weight: bold; }em, i { font-style: italic; }\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"h1 {display: block;font-size: 3.1em;line-height: 1.45em;font-family: 'Laila', serif;text-align: center;font-weight: bold;color: #555;text-shadow: 1px 1px 0 #fff;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"form {float;display: block;margin: 30px;overflow: hidden;background: #fff;border: 1px solid #e4e4e4;border-radius: 5px;font-size: 0;\r\n}");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"form > div > label {display: block;padding: 20px 20px 10px;vertical-align: top;font-size: 13px;font-weight: bold;text-transform: uppercase;color: #939393;cursor: pointer;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"form > div.switch > label {padding: 16px 20px 13px;}.col-2, .col-3, .col-4 { float;border-bottom: 1px solid #e4e4e4;}form > div > .col-4 {height: 86px;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"label > input {display: inline-block;position: relative;width: 100%;height: 27px;line-height: 27px;margin: 5px -5px 0;padding: 7px 5px 3px;border: none;outline: none;color: #555;font-family: 'Helvetica Neue', Arial, sans-serif;font-weight: bold;font-size: 14px;opacity: .6;transition: all linear .3s;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,".col-submit {text-align: center;padding: 20px;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"label > select {display: block;width: 100%;padding: 0;color: #555;margin: 16px 0 6px;font-weight: 500;background: transparent;border: none;outline: none;font-family: 'Helvetica Neue', Arial, sans-serif;font-size: 14px;opacity: .4;transition: all linear .3s;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"label > input:focus, label > select:focus {opacity: 1;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"button {width: 100%;height: 35px;border: none;border-radius: 4px;margin: 0 0 15px 0;font-size: 14px;color: #fff;font-weight: bold;text-shadow: 1px 1px 0 rgba(0,0,0,0.3);overflow: hidden;outline: none;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"button.submitbtn {background-image: -moz-linear-gradient(#97c16b, #8ab959);background-image: -webkit-linear-gradient(#97c16b, #8ab959);background-image: linear-gradient(#97c16b, #8ab959);border-bottom: 1px solid #648c3a;cursor: pointer;color: #fff;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"button.submitbtn:hover {background-image: -moz-linear-gradient(#8ab959, #7eaf4a);background-image: -webkit-linear-gradient(#8ab959, #7eaf4a);background-image: linear-gradient(#8ab959, #7eaf4a);}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"button.submitbtn:active {height: 34px;border-bottom: 0;margin: 1px 0 0 0;background-image: -moz-linear-gradient(#7eaf4a, #8ab959);background-image: -webkit-linear-gradient(#7eaf4a, #8ab959);background-image: linear-gradient(#7eaf4a, #8ab959);-moz-box-shadow: inset 0 1px 3px 1px rgba(0, 0, 0, 0.3);-webkit-box-shadow: inset 0 1px 3px 1px rgba(0, 0, 0, 0.3);box-shadow: inset 0 1px 3px 1px rgba(0, 0, 0, 0.3);}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"button.resetbtn {background-image: -moz-linear-gradient(#97c16b, #8ab959);background-image: -webkit-linear-gradient(#97c16b, #8ab959);background-image: linear-gradient(#97c16b, #8ab959);border-bottom: 1px solid #648c3a;cursor: pointer;color: #fff;}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"button.resetbtn:hover {background-image: -moz-linear-gradient(#8ab959, #7eaf4a);background-image: -webkit-linear-gradient(#8ab959, #7eaf4a);background-image: linear-gradient(#8ab959, #7eaf4a);}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"button.resetbtn:active {height: 34px;border-bottom: 0;margin: 1px 0 0 0;background-image: -moz-linear-gradient(#7eaf4a, #8ab959);background-image: -webkit-linear-gradient(#7eaf4a, #8ab959);background-image: linear-gradient(#7eaf4a, #8ab959);-moz-box-shadow: inset 0 1px 3px 1px rgba(0, 0, 0, 0.3);-webkit-box-shadow: inset 0 1px 3px 1px rgba(0, 0, 0, 0.3);box-shadow: inset 0 1px 3px 1px rgba(0, 0, 0, 0.3);}\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"@media(min-width: 850px){form > div { display: inline-block; }.col-submit { display: block; }.col-2, .col-3, .col-4 { box-shadow: 1px 1px #e4e4e4; border: none; }.col-2 { width: 50% }.col-3 { width: 33.3333333333% }.col-4 { width: 25% }.col-submit button { width: 30%; margin: 0 auto; }\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf,"</style></form></div></body></html>\r\n");
+    send(client, buf, strlen(buf), 0);
+}
 
 /**********************************************************************/
 /* A request has caused a call to accept() on the server port to
@@ -99,23 +247,22 @@ void * accept_request(void *arg)
 
     sprintf(path, "res%s", url);
     if (path[strlen(path) - 1] == '/')
-        strcat(path, "index.html"); //index.html can't have execute permission
-    if (stat(path, &st) == -1) {
+        get_html(client);
+    else if (stat(path, &st) == -1) {
         // read & discard headers
         while ((rlen > 0) && strcmp("\n", buf))
             rlen = get_line(client, buf, sizeof(buf));
         not_found(client);
     } else {
-        if ((st.st_mode & S_IFMT) == S_IFDIR)
-            strcat(path, "/index.html");
-        else if ((st.st_mode & S_IXUSR) ||
+        if ((st.st_mode & S_IXUSR) ||
               (st.st_mode & S_IXGRP) ||
-              (st.st_mode & S_IXOTH))
-            cgi = 1;
-        if (!cgi)
-            serve_file(client, path);
-        else
+              (st.st_mode & S_IXOTH)) {
             execute_cgi(client, path, method, query_str);
+        } else {
+            while ((rlen > 0) && strcmp("\n", buf))
+            rlen = get_line(client, buf, sizeof(buf));
+            not_found(client);
+        }
     }
 
     close(client);
@@ -192,7 +339,7 @@ void execute_cgi(int client, const char *path,
     int   clen = -1;
     char  c;
     char  ip[19];
-    char  port[11];
+    char  port[12];
     char  baud[13];
     char  buf[1024];
     pid_t pid;
@@ -259,7 +406,6 @@ void execute_cgi(int client, const char *path,
             }
             putenv(baud);
         }
-
         execl(path, path, NULL);
         exit(0);
     } else {    //parent
@@ -487,3 +633,4 @@ int main(void)
 
     exit(0);
 }
+
