@@ -81,8 +81,8 @@ int main(int argc, char const *argv[])
     arg[0] = dpc_sk;
     arg[1] = local_sk;
 
-    if (pthread_create(&tid, NULL, thread_read_dpc, (void *)arg))
-        puts_exit("... rxtx: can't create thread");
+    //if (pthread_create(&tid, NULL, thread_read_dpc, (void *)arg))
+        //puts_exit("... rxtx: can't create thread");
 
     fdset[0].fd     = tty;
     fdset[0].events = POLLIN;
@@ -94,14 +94,18 @@ int main(int argc, char const *argv[])
             case -1:
                 err_exit("... rxtx: poll");
             case 0:
-                puts("... rxtx: no tty data, send heartbeat data");
-                send_retry(dpc_sk, HB_BUF, HB_LEN, local_sk);
+                //puts("... rxtx: no tty data, send heartbeat data");
+                //send_retry(dpc_sk, HB_BUF, HB_LEN, local_sk);
                 break;
             default:
                 if ((rlen = read(tty, buffer, MAXBUF)) <= 0) {
                     perror("... rxtx: read tty data");
                     break;
                 }
+                int i;
+                for (i = 0; i < rlen; i++)
+                    printf("%02X ", buffer[i]);
+                printf("\n");
                 send_retry(dpc_sk, buffer, rlen, local_sk);
         }
     }
