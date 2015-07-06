@@ -18,6 +18,8 @@ elif [ $1 -eq 6 ]; then
     dumpsys wifi | grep -m 1 Wi-Fi
 elif [ $1 -eq 7 ]; then
     rm /data/data/com.monet.connectme/files/ConnectTo
+    sleep 1
     echo "openWifiAp,TDT,password" > /data/data/com.monet.connectme/files/ConnectTo
+    sleep 1
     monkey -p com.monet.connectme -c android.intent.category.LAUNCHER 1
 fi

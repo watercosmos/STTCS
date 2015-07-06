@@ -69,7 +69,7 @@ static char * del_both_trim(char * str)
 void get_html(int client)
 {
     FILE *fp;
-    char buf[4096];
+    char buf[102400];
     char *delim = "=";
     char *item, *key, *value;
     char ip[16];
@@ -110,7 +110,7 @@ void get_html(int client)
         else if (!strncmp(key, "BAUDRATE", 8))
             strcpy(baudrate, value);
     }
-    strcpy(buf,"<!DOCTYPE html><html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"\r\n>");
+    strcpy(buf,"<!DOCTYPE html><html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" <meta name=\"viewport\"  content=\"width=device-width,initial-scale=1\">\r\n>");
     send(client, buf, strlen(buf), 0);
     strcpy(buf,"<title>TDT configeration</title></head><body><div id=\"wrapper\"></div><h1>TDT 配置页面</h1><form action=\"cgi\" name=\"cgi\"  method=\"post\" >\"\r\n");
     send(client, buf, strlen(buf), 0);
@@ -138,9 +138,9 @@ void get_html(int client)
 	send(client, buf, strlen(buf), 0);
 	strcpy(buf,"<div class=\"col-submit\"><button class=\"submitbtn\" type=\"submit\">提交信息</button></div><div class=\"col-submit\"><button class=\"resetbtn\" type=\"reset\">重置信息</button></div>");
 	send(client, buf, strlen(buf), 0);
-	strcpy(buf,"<style>@import url(http://fonts.googleapis.com/css?family=Laila:400,700);html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, big, cite, code, del, dfn, em, img, ins, kbd, q, s, samp, small, strike, strong, sub, sup, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, aside, canvas, details, figure, output, section,   {margin: 0;padding: 0;border: 0;font-size: 100%;font: inherit;vertical-align: baseline;outline: none;-webkit-font-smoothing: antialiased;-webkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box;}");
+	strcpy(buf,"<style>@import url(http://fonts.googleapis.com/css?family=Laila:400,700);html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, big, cite, code, del, dfn, em, img, ins, kbd, q, s, samp, small, strike, strong, sub, sup, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, aside, canvas, details, figure, output, section,   {margin: 0;padding: 0;border: 0;font-size: 100%;font: inherit;vertical-align: baseline;outline: none;-webkit-font-smoothing: antialiased;-webkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box;}");    
     send(client,buf,strlen(buf),0);
-	strcpy(buf,"html{ overflow-y: scroll; }body {font-family: Arial, Tahoma, sans-serif;background: #e2eef4;font-size: 62.5%;line-height: 1;padding-top: 20px;}br { display: block; line-height: 1.6em; } input, textarea { -webkit-font-smoothing: antialiased;outline: none; }strong, b { font-weight: bold; }em, i { font-style: italic; }h1 {display: block;font-size: 3.1em;line-height: 1.45em;font-family: 'Laila', serif;text-align: center;font-weight: bold;color: #555;text-shadow: 1px 1px 0 #fff;}");
+	strcpy(buf,"html{ overflow-y: scroll; }body {font-family: Arial, Tahoma, sans-serif;background: #e2eef4;font-size: 62.5%;line-height: 1;padding-top: 20px;}br { display: block; line-height: 1.6em; } input, textarea { -webkit-font-smoothing: antialiased;outline: none; }strong, b { font-weight: bold; }em, i { font-style: italic; }h1 {display: block;font-size: 3.1em;line-height: 1.45em;font-family: 'Laila', sans-serif;text-align: center;font-weight: bold;color: #555;text-shadow: 1px 1px 0 #fff;}");
     send(client,buf,strlen(buf),0);
 	strcpy(buf,"form {display: block;margin: 30px;overflow: hidden;background: #fff;border: 1px solid #e4e4e4;border-radius: 5px;font-size: 0;}form > div > label {display: block;padding: 20px 20px 10px;vertical-align: top;font-size: 13px;font-weight: bold;text-transform: uppercase;color: #939393;cursor: pointer;}.col-2, .col-3 { border-bottom: 1px solid #e4e4e4;}label > input {display: inline-block;position: relative;width: 100%;height: 27px;line-height: 27px;margin: 5px -5px 0;padding: 7px 5px 3px;border: none;outline: none;color: #555;font-family: 'Helvetica Neue', Arial, sans-serif;font-weight: bold;font-size: 14px;opacity: .6;transition: all linear .3s;}.col-submit {text-align: center;padding: 5px;}label > input:focus, label > select:focus {opacity: 1;}");
     send(client,buf,strlen(buf),0);
@@ -150,6 +150,7 @@ void get_html(int client)
     send(client,buf,strlen(buf),0);
 	strcpy(buf,"@media(min-width: 850px){form > div { display: inline-block; }.col-submit { display: block; }.col-2, .col-3{ box-shadow: 1px 1px #e4e4e4; border: none; }.col-2 { width: 50% }.col-3 { width: 33.3333333333% }.col-submit button { width: 30%; margin: 0 auto; }}</style></form></div></body></html>");
     send(client,buf,strlen(buf),0);
+	
 }
 
 /**********************************************************************/
