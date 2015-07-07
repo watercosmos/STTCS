@@ -213,9 +213,9 @@ static void check_network(int sk)
 {
     for (;;) {
         network_manager(MOBILEON);
-        sleep(1);
+        sleep(2);
         network_manager(WIFION);
-        sleep(1);
+        sleep(2);
 
         //should check available ssid
 
@@ -223,7 +223,7 @@ static void check_network(int sk)
             return;
 
         network_manager(WIFIOFF);
-        sleep(1);
+        sleep(2);
 
         if (!network_manager(CONNECTIVITY)) {
             puts("... main: No Internet Access");
