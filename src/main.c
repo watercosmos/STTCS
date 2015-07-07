@@ -68,12 +68,12 @@ static void read_cfg(void)
     char *delim = "=";
     char *item, *key, *value;
 
-    if ((fp = fopen("./.config", "r")) == NULL) {
+    if ((fp = fopen("/data/src/.config", "r")) == NULL) {
         if (errno == ENOENT) {
-            puts("... main: no \"./.config\", use default parameters");
+            puts("... main: no \"/data/src/.config\", use default parameters");
             return;
         } else
-            err_exit("... main: open ./.config error");
+            err_exit("... main: open /data/src/.config error");
     }
 
     //make sure once .config is exist, it is never a blank file
@@ -156,7 +156,7 @@ static int network_manager(int cmd)
             close(fd[1]);
             close(STDERR_FILENO);
         }
-        if (execlp("./net.sh", "net.sh", arg, (char *)0) == -1)
+        if (execlp("/data/src/net.sh", "net.sh", arg, (char *)0) == -1)
             err_exit("... main: exec sh");
     }
 
@@ -229,7 +229,7 @@ static void check_network(int sk)
         network_manager(APMODE);
         close(sk);
         puts("... main: start http server");
-        if (execlp("./httpd", "httpd", (char *)0) == -1)
+        if (execlp("/data/src/httpd", "httpd", (char *)0) == -1)
             err_exit("... main: exec httpd");
         //after configuration, this process should run again
         exit(EXIT_FAILURE);
@@ -252,7 +252,7 @@ static pid_t launch_rxtx(void)
         err_exit("... main: fork error");
     else if (pid == 0) {
         printf("... rxtx: start, pid is %ld\n", (long)getpid());
-        if (execl("./rxtx", "rxtx", IP, port, baudrate, (char *)NULL) == -1)
+        if (execl("/data/src/rxtx", "rxtx", IP, port, baudrate, (char *)NULL) == -1)
             err_exit("... rxtx: execl error");
     }
 
