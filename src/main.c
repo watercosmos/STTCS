@@ -211,28 +211,32 @@ static int network_manager(int cmd)
 
 static void check_network(int sk)
 {
-    network_manager(MOBILEON);
-    sleep(1);
-    network_manager(WIFION);
-    sleep(1);
+    for (;;) {
+        network_manager(MOBILEON);
+        sleep(1);
+        network_manager(WIFION);
+        sleep(1);
 
-    //should check available ssid
+        //should check available ssid
 
-    if (network_manager(CONNECTIVITY))
-        return;
+        if (network_manager(CONNECTIVITY))
+            return;
 
-    network_manager(WIFIOFF);
-    sleep(1);
+        network_manager(WIFIOFF);
+        sleep(1);
 
-    if (!network_manager(CONNECTIVITY)) {
-        puts("... main: No Internet Access");
-        network_manager(APMODE);
-        close(sk);
-        puts("... main: start http server");
-        if (execlp("/data/src/httpd", "httpd", (char *)0) == -1)
-            err_exit("... main: exec httpd");
-        //after configuration, this process should run again
-        exit(EXIT_FAILURE);
+        if (!network_manager(CONNECTIVITY)) {
+            puts("... main: No Internet Access");
+            continue;
+            //network_manager(APMODE);
+            //close(sk);
+            //puts("... main: start http server");
+            //if (execlp("/data/src/httpd", "httpd", (char *)0) == -1)
+            //    err_exit("... main: exec httpd");
+            //after configuration, this process should run again
+            //exit(EXIT_FAILURE);
+        } else
+            return;
     }
 }
 
