@@ -28,7 +28,7 @@ int main(int argc, char const *argv[])
                          0x80, 0x1E, 0x1F, 0xA8, 0x5A };
 
     //this part is used for sending to DPC
-    if (argc != 3) {
+    /*if (argc != 3) {
         puts("usage: xmit [IP] [PORT]");
         exit(1);
     }
@@ -47,10 +47,10 @@ int main(int argc, char const *argv[])
         color++;
 
         for (n = 1; n <= 4; n <<= 1) {
-            if (color == 3)
+            if (color == 3) {
                 if (send(dpc_sk, frame23, 20, 0) > 0)
                     break;
-            else if (color == 5) {
+            } else if (color == 5) {
                 if (send(dpc_sk, frame12, 20, 0) > 0) {
                     color = 0;
                     break;
@@ -66,10 +66,10 @@ int main(int argc, char const *argv[])
                 sleep(n);
             }
         }
-    }
+    }*/
 
     //this part is used for sending from uart
-    /*int tty, rlen, n;
+    int tty, rlen, n;
     int color = 0;
     int baudrate = (argc == 2) ? atoi(argv[1]) : 115200;
 
@@ -84,10 +84,10 @@ int main(int argc, char const *argv[])
         color++;
 
         for (n = 1; n <= 4; n <<= 1) {
-            if (color == 3)
+            if (color == 3) {
                 if (write(tty, frame11, 20) > 0)
                     break;
-            else if (color == 5) {
+            } else if (color == 5) {
                 if (write(tty, frame12, 20) > 0) {
                     color = 0;
                     break;
@@ -103,7 +103,7 @@ int main(int argc, char const *argv[])
                 sleep(n);
             }
         }
-    }*/
+    }
 
     exit(0);
 }
